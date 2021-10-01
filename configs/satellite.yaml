@@ -55,7 +55,7 @@ RESUME:
   HR_GAN: False
 
 DATA:
-  FOLDER: /dataset/
+  FOLDER: /content/
   NUM_WORKERS: 8
   IMG_RANGE: 1 # for ESRGAN, set it to 1
   IMG_MEAN_SHIFT: False # for ESRGAN, set it to False
