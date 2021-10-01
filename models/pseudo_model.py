@@ -4,11 +4,11 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from models.rcan import make_cleaning_net, make_SR_net
-from models.generators import TransferNet
-from models.discriminators import NLayerDiscriminator
-from models.losses import GANLoss
-from models.geo_loss import geometry_ensemble
+from rcan import make_cleaning_net, make_SR_net
+from generators import TransferNet
+from discriminators import NLayerDiscriminator
+from losses import GANLoss
+from geo_loss import geometry_ensemble
 
 class Pseudo_Model():
     def __init__(self, device, cfg, use_ddp=False):
