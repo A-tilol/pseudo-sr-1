@@ -64,14 +64,14 @@ class SatData(Dataset):
         lr = cv2.imread(self.lr_files[lr_idx])
         if self.rgb:
             lr = cv2.cvtColor(lr, cv2.COLOR_BGR2RGB)
-        data["lr"] = self.preproc(lr)["image"] * self.img_min_max[1]
+        data["lr"] = self.preproc(image=lr)["image"] * self.img_min_max[1]
         data["lr_path"] = self.lr_files[lr_idx]
         if self.ready_hr:
             hr_idx = index % len(self.hr_files)
             hr = cv2.imread(self.hr_files[hr_idx])
             if self.rgb:
                 hr = cv2.cvtColor(hr, cv2.COLOR_BGR2RGB)
-            data["hr"] = self.preproc(hr)["image"] * self.img_min_max[1]
+            data["hr"] = self.preproc(image=hr)["image"] * self.img_min_max[1]
             data["hr_path"] = self.hr_files[hr_idx]
             data["hr_down"] = nnF.interpolate(
                 data["hr"].unsqueeze(0),
