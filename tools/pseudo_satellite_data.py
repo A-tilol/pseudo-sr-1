@@ -8,6 +8,7 @@ import torch.nn.functional as nnF
 import torch
 
 import albumentations as album
+import albumentations.pytorch
 
 import glob
 
