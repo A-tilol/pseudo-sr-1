@@ -75,7 +75,7 @@ class SatData(Dataset):
         aug_imgs = self.preproc(image=lr, hr=hr)
         data["lr"] = aug_imgs["image"] * self.img_min_max[1]
         data["hr"] = aug_imgs["hr"] * self.img_min_max[1]
-        print(aug_imgs["image"] * self.img_min_max[1])
+        print(aug_imgs["hr"] * self.img_min_max[1])
 
         data["hr_down"] = nnF.interpolate(
             data["hr"].unsqueeze(0),
