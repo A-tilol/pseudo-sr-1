@@ -163,6 +163,7 @@ if __name__ == "__main__":
     n_gpus = 0
     if torch.cuda.is_available():
         n_gpus = torch.cuda.device_count()
+    print("torch.cuda.device_count()", torch.cuda.device_count())
 
     if n_gpus <= 1:
         print("single proc.",
