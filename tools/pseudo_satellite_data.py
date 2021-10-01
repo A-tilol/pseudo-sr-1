@@ -42,8 +42,7 @@ class SatData(Dataset):
         if self.training:
             self.preproc = album.Compose([
                 album.HorizontalFlip(p=0.5),
-                album.VerticalFlip(p=0.5),
-                album.RandomRotate90(p=0.5),
+                album.RandomRotate90(p=1),
                 album.pytorch.ToTensor()
             ])
         else:
