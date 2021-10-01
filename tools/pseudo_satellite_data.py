@@ -71,6 +71,11 @@ class SatData(Dataset):
         if self.rgb:
             hr = cv2.cvtColor(hr, cv2.COLOR_BGR2RGB)
         data["hr_path"] = self.hr_files[hr_idx]
+
+        aug_imgs = self.preproc(image=lr, hr=hr)
+        data["lr"] = aug_imgs["image"] * self.img_min_max[1]
+        data["hr"] = aug_imgs["hr"] * self.img_min_max[1]
+
         data["hr_down"] = nnF.interpolate(
             data["hr"].unsqueeze(0),
             scale_factor=1 / self.scale,
@@ -78,10 +83,6 @@ class SatData(Dataset):
             align_corners=False,
             recompute_scale_factor=False).clamp(
                 min=self.img_min_max[0], max=self.img_min_max[1]).squeeze(0)
-
-        aug_imgs = self.preproc(image=lr, hr=hr)
-        data["lr"] = aug_imgs["image"] * self.img_min_max[1]
-        data["hr"] = aug_imgs["hr"] * self.img_min_max[1]
         return data
 
     def get_noises(self, n):
