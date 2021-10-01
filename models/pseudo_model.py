@@ -199,7 +199,7 @@ class Pseudo_Model():
 
 if __name__ == "__main__":
     from yacs.config import CfgNode
-    with open("configs/faces.yaml", "rb") as cf:
+    with open("configs/satellite.yaml", "rb") as cf:
         CFG = CfgNode.load_cfg(cf)
         CFG.freeze()
     device = 0
