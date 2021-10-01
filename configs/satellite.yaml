@@ -28,26 +28,26 @@ OPT_CYC:
     D_SR_WEIGHT: 0.1
   IDT_INPUT: clean # corrupted or clean
 
-# OPT_SR:
-#   WARMUP: 5000
-#   LR_D: 0.0001
-#   LR_G: 0.0001
-#   TYPE: ADAM
-#   MOMENTUM: 0.9
-#   BETAS_D: [0.9, 0.999]
-#   BETAS_G: [0.9, 0.999]
-#   LR_MILESTONE: [100000, 180000, 240000, 280000]
-#   LR_DECAY: 0.9
-#   LOSS:
-#     PIXEL_WEIGHT: 0.01
-#     VGG_WEIGHT: 1
-#     GAN_WEIGHT: 0.005
+OPT_SR:
+  WARMUP: 5000
+  LR_D: 0.0001
+  LR_G: 0.0001
+  TYPE: ADAM
+  MOMENTUM: 0.9
+  BETAS_D: [0.9, 0.999]
+  BETAS_G: [0.9, 0.999]
+  LR_MILESTONE: [100000, 180000, 240000, 280000]
+  LR_DECAY: 0.9
+  LOSS:
+    PIXEL_WEIGHT: 0.01
+    VGG_WEIGHT: 1
+    GAN_WEIGHT: 0.005
 
 PRETRAINED:
   LR_D: False
   LR_G: False
-  # HR_D: False
-  # HR_G: False
+  HR_D: False
+  HR_G: False
   STRICT: False
 
 RESUME:
