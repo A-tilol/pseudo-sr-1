@@ -10,7 +10,7 @@ import torch
 import torch.multiprocessing as mp
 import torch.distributed as dist
 
-from tools.pseudo_face_data import faces_data
+from tools.pseudo_satellite_data import SatData
 from tools.utils import save_tensor_image, AverageMeter
 from models.pseudo_model import Pseudo_Model
 
@@ -60,18 +60,19 @@ def main(rank, world_size, cpu=False):
 
     model = Pseudo_Model(rank, CFG, world_size > 1)
 
-    trainset = faces_data(data_lr=os.path.join(CFG.DATA.FOLDER,
-                                               "LOW/wider_lnew"),
-                          data_hr=os.path.join(CFG.DATA.FOLDER, "HIGH"),
-                          img_range=CFG.DATA.IMG_RANGE,
-                          rgb=CFG.DATA.RGB)
+    trainset = SatData(data_lr=os.path.join(CFG.DATA.FOLDER, "train/lr"),
+                       data_hr=os.path.join(CFG.DATA.FOLDER, "train/hr"),
+                       img_range=CFG.DATA.IMG_RANGE,
+                       rgb=CFG.DATA.RGB,
+                       scale=CFG.SR.SCALE)
     loader = get_train_loader(trainset, world_size, batch_per_gpu)
-    testset = faces_data(data_lr=os.path.join(CFG.DATA.FOLDER, "testset"),
-                         data_hr=None,
-                         b_train=False,
-                         shuffle=False,
-                         img_range=CFG.DATA.IMG_RANGE,
-                         rgb=CFG.DATA.RGB)
+    testset = SatData(data_lr=os.path.join(CFG.DATA.FOLDER, "test/lr"),
+                      data_hr=os.path.join(CFG.DATA.FOLDER, "test/hr"),
+                      b_train=False,
+                      shuffle=False,
+                      img_range=CFG.DATA.IMG_RANGE,
+                      rgb=CFG.DATA.RGB,
+                      scale=CFG.SR.SCALE)
 
     end_ep = int(np.ceil(CFG.OPT.MAX_ITER / len(loader))) + 1
     test_freq = max([end_ep // 10, 1])
@@ -115,18 +116,18 @@ def main(rank, world_size, cpu=False):
             model.net_save(net_save_folder)
             model.mode_selector("eval")
             for b in range(len(testset)):
-                if b > 100: break
+                if b > 10: break
                 lr = testset[b]["lr"].unsqueeze(0).to(rank)
-                y, sr, _ = model.test_sample(lr)
-                save_tensor_image(
-                    os.path.join(img_save_folder, f"{b:04d}_y.png"), y,
-                    CFG.DATA.IMG_RANGE, CFG.DATA.RGB)
-                save_tensor_image(
-                    os.path.join(img_save_folder, f"{b:04d}_sr.png"), sr,
-                    CFG.DATA.IMG_RANGE, CFG.DATA.RGB)
-                save_tensor_image(
-                    os.path.join(img_save_folder, f"{b:04d}_lr.png"), lr,
-                    CFG.DATA.IMG_RANGE, CFG.DATA.RGB)
+                hr_down = testset[b]["hr_down"].unsqueeze(0).to(rank)
+                z = testset[b]["z"].unsqueeze(0).to(rank)
+                xy, yx, yxy = model.test_sample(lr, hr_down, z)
+                imgs = [lr, xy, hr_down, yx, yxy]
+                titles = ["lr", "xy", "hr_down", "yx", "yxy"]
+                for i in range(len(imgs)):
+                    save_tensor_image(
+                        os.path.join(img_save_folder,
+                                     f"{b:04d}" + f"_{titles[i]}.png"),
+                        CFG.DATA.IMG_RANGE, CFG.DATA.RGB, titles[i])
         if world_size > 1: dist.barrier()
 
     if rank == last_device:
@@ -135,13 +136,16 @@ def main(rank, world_size, cpu=False):
         model.mode_selector("eval")
         for b in range(len(testset)):
             lr = testset[b]["lr"].unsqueeze(0).to(rank)
-            y, sr, _ = model.test_sample(lr)
-            save_tensor_image(os.path.join(img_save_folder, f"{b:04d}_y.png"),
-                              y, CFG.DATA.IMG_RANGE, CFG.DATA.RGB)
-            save_tensor_image(os.path.join(img_save_folder, f"{b:04d}_sr.png"),
-                              sr, CFG.DATA.IMG_RANGE, CFG.DATA.RGB)
-            save_tensor_image(os.path.join(img_save_folder, f"{b:04d}_lr.png"),
-                              lr, CFG.DATA.IMG_RANGE, CFG.DATA.RGB)
+            hr_down = testset[b]["hr_down"].unsqueeze(0).to(rank)
+            z = testset[b]["z"].unsqueeze(0).to(rank)
+            xy, yx, yxy = model.test_sample(lr, hr_down, z)
+            imgs = [lr, xy, hr_down, yx, yxy]
+            titles = ["lr", "xy", "hr_down", "yx", "yxy"]
+            for i in range(len(imgs)):
+                save_tensor_image(
+                    os.path.join(img_save_folder,
+                                 f"{b:04d}" + f"_{titles[i]}.png"),
+                    CFG.DATA.IMG_RANGE, CFG.DATA.RGB, titles[i])
     if world_size > 1: dist.barrier()
     if world_size > 1: cleanup()
 

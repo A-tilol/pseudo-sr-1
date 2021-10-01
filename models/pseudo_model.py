@@ -105,13 +105,13 @@ class Pseudo_Model():
         if shout and changed: print(lrs)
 
     def test_sample(self, Xs, Yds=None, Zs=None):
-        x = None
         with torch.no_grad():
-            y = self.nets["G_xy"](Xs)
-            sr = self.nets["U"](y)
+            xy = self.nets["G_xy"](Xs)
+            # sr = self.nets["U"](y)
         if Yds is not None and Zs is not None:
-            x = self.nets["G_yx"](Yds, Zs)
-        return y, sr, x
+            yx = self.nets["G_yx"](Yds, Zs)
+            yxy = self.nets["G_xy"](yx)
+        return xy, yx, yxy
 
     def train_step(self, Ys, Xs, Yds, Zs):
         '''
@@ -129,8 +129,8 @@ class Pseudo_Model():
         fake_Yds = self.G_xy(Xs)
         geo_Yds = geometry_ensemble(self.G_xy, Xs)
         idt_out = self.G_xy(Yds) if self.idt_input_clean else fake_Yds
-        sr_y = self.U(rec_Yds)
-        sr_x = self.U(fake_Yds)
+        # sr_y = self.U(rec_Yds)
+        # sr_x = self.U(fake_Yds)
 
         self.net_grad_toggle(["D_x", "D_y", "D_sr"], True)
         # D_x
@@ -152,13 +152,13 @@ class Pseudo_Model():
         loss_dict["D_y"] = loss_D_y.item()
 
         # D_sr
-        pred_sr_x = self.D_sr(sr_x.detach())
-        pred_sr_y = self.D_sr(sr_y.detach())
-        loss_D_sr = (self.gan_loss(pred_sr_x, True, True) + self.gan_loss(pred_sr_y, False, True)) * 0.5
-        self.opt_Dsr.zero_grad()
-        loss_D_sr.backward()
-        self.opt_Dsr.step()
-        loss_dict["D_sr"] = loss_D_sr.item()
+        # pred_sr_x = self.D_sr(sr_x.detach())
+        # pred_sr_y = self.D_sr(sr_y.detach())
+        # loss_D_sr = (self.gan_loss(pred_sr_x, True, True) + self.gan_loss(pred_sr_y, False, True)) * 0.5
+        # self.opt_Dsr.zero_grad()
+        # loss_D_sr.backward()
+        # self.opt_Dsr.step()
+        # loss_dict["D_sr"] = loss_D_sr.item()
 
         self.net_grad_toggle(["D_x", "D_y", "D_sr"], False)
         # G_yx
@@ -170,18 +170,18 @@ class Pseudo_Model():
 
         # G_xy
         pred_fake_Yds = self.D_y(fake_Yds)
-        pred_sr_y = self.D_sr(sr_y)
+        # pred_sr_y = self.D_sr(sr_y)
         loss_gan_Gxy = self.gan_loss(pred_fake_Yds, True, False)
         loss_idt_Gxy = self.l1_loss(idt_out, Yds) if self.idt_input_clean else self.l1_loss(idt_out, Xs)
         loss_cycle = self.l1_loss(rec_Yds, Yds)
         loss_geo = self.l1_loss(fake_Yds, geo_Yds)
-        loss_d_sr = self.gan_loss(pred_sr_y, True, False)
-        loss_total_gen = loss_gan_Gyx + loss_gan_Gxy + self.cyc_weight * loss_cycle + self.idt_weight * loss_idt_Gxy + self.geo_weight * loss_geo + self.d_sr_weight * loss_d_sr
+        # loss_d_sr = self.gan_loss(pred_sr_y, True, False)
+        loss_total_gen = loss_gan_Gyx + loss_gan_Gxy + self.cyc_weight * loss_cycle + self.idt_weight * loss_idt_Gxy + self.geo_weight * loss_geo
         loss_dict["G_xy_gan"] = loss_gan_Gxy.item()
         loss_dict["G_xy_idt"] = loss_idt_Gxy.item()
         loss_dict["cyc_loss"] = loss_cycle.item()
         loss_dict["G_xy_geo"] = loss_geo.item()
-        loss_dict["D_sr"] = loss_d_sr.item()
+        # loss_dict["D_sr"] = loss_d_sr.item()
         loss_dict["G_total"] = loss_total_gen.item()
 
         # gen loss backward and update
@@ -190,11 +190,11 @@ class Pseudo_Model():
         self.opt_Gxy.step()
 
         # U
-        self.opt_U.zero_grad()
-        loss_U = self.l1_loss(self.U(rec_Yds.detach()), Ys)
-        loss_U.backward()
-        self.opt_U.step()
-        loss_dict["U_pix"] = loss_U.item()
+        # self.opt_U.zero_grad()
+        # loss_U = self.l1_loss(self.U(rec_Yds.detach()), Ys)
+        # loss_U.backward()
+        # self.opt_U.step()
+        # loss_dict["U_pix"] = loss_U.item()
         return loss_dict
 
 if __name__ == "__main__":
