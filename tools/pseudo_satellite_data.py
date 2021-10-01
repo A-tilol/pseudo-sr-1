@@ -25,7 +25,7 @@ class SatData(Dataset):
                  scale=4):
         self.ready_hr = data_hr is not None
         if data_hr is not None:
-            self.hr_files = glob.glob(os.path.join(data_hr, "**/*.tif"),
+            self.hr_files = glob.glob(os.path.join(data_hr, "*.tif"),
                                       recursive=True)
             self.hr_files.sort()
         self.lr_files = glob.glob(os.path.join(data_lr, "*.tif"),
