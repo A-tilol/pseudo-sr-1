@@ -3,7 +3,7 @@ This file is copied from
 https://github.com/yulunzhang/RCAN
 '''
 
-import common
+from models import common
 
 import torch.nn as nn
 import torch

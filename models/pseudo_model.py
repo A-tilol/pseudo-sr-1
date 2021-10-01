@@ -4,49 +4,114 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from rcan import make_cleaning_net, make_SR_net
-from generators import TransferNet
-from discriminators import NLayerDiscriminator
-from losses import GANLoss
-from geo_loss import geometry_ensemble
+from models.rcan import make_cleaning_net, make_SR_net
+from models.generators import TransferNet
+from models.discriminators import NLayerDiscriminator
+from models.losses import GANLoss
+from models.geo_loss import geometry_ensemble
+
 
 class Pseudo_Model():
     def __init__(self, device, cfg, use_ddp=False):
         self.device = device
         self.idt_input_clean = cfg.OPT_CYC.IDT_INPUT == "clean"
         rgb_range = cfg.DATA.IMG_RANGE
-        rgb_mean_point = (0.5, 0.5, 0.5) if cfg.DATA.IMG_MEAN_SHIFT else (0, 0, 0)
-        self.G_xy = make_cleaning_net(rgb_range=rgb_range, rgb_mean=rgb_mean_point).to(device)
-        self.G_yx = TransferNet(rgb_range=rgb_range, rgb_mean=rgb_mean_point).to(device)
-        self.U = make_SR_net(rgb_range=rgb_range, rgb_mean=rgb_mean_point, scale_factor=2).to(device)
-        self.D_x = NLayerDiscriminator(3, scale_factor=1, norm_layer=nn.Identity).to(device)
-        self.D_y = NLayerDiscriminator(3, scale_factor=1, norm_layer=nn.Identity).to(device)
-        self.D_sr = NLayerDiscriminator(3, scale_factor=cfg.SR.SCALE, norm_layer=nn.Identity).to(device)
+        rgb_mean_point = (0.5, 0.5, 0.5) if cfg.DATA.IMG_MEAN_SHIFT else (0, 0,
+                                                                          0)
+        self.G_xy = make_cleaning_net(rgb_range=rgb_range,
+                                      rgb_mean=rgb_mean_point).to(device)
+        self.G_yx = TransferNet(rgb_range=rgb_range,
+                                rgb_mean=rgb_mean_point).to(device)
+        self.U = make_SR_net(rgb_range=rgb_range,
+                             rgb_mean=rgb_mean_point,
+                             scale_factor=2).to(device)
+        self.D_x = NLayerDiscriminator(3,
+                                       scale_factor=1,
+                                       norm_layer=nn.Identity).to(device)
+        self.D_y = NLayerDiscriminator(3,
+                                       scale_factor=1,
+                                       norm_layer=nn.Identity).to(device)
+        self.D_sr = NLayerDiscriminator(3,
+                                        scale_factor=cfg.SR.SCALE,
+                                        norm_layer=nn.Identity).to(device)
         if use_ddp:
             self.G_xy = DDP(self.G_xy, device_ids=[device])
-            self.G_yx = DDP(torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.G_yx), device_ids=[device])
+            self.G_yx = DDP(torch.nn.SyncBatchNorm.convert_sync_batchnorm(
+                self.G_yx),
+                            device_ids=[device])
             self.U = DDP(self.U, device_ids=[device])
             self.D_x = DDP(self.D_x, device_ids=[device])
             self.D_y = DDP(self.D_y, device_ids=[device])
             self.D_sr = DDP(self.D_sr, device_ids=[device])
 
-        self.opt_Gxy = optim.Adam(self.G_xy.parameters(), lr=cfg.OPT_CYC.LR_G, betas=cfg.OPT_CYC.BETAS_G)
-        self.opt_Gyx = optim.Adam(self.G_yx.parameters(), lr=cfg.OPT_CYC.LR_G, betas=cfg.OPT_CYC.BETAS_G)
-        self.opt_Dx = optim.Adam(self.D_x.parameters(), lr=cfg.OPT_CYC.LR_D, betas=cfg.OPT_CYC.BETAS_D)
-        self.opt_Dy = optim.Adam(self.D_y.parameters(), lr=cfg.OPT_CYC.LR_D, betas=cfg.OPT_CYC.BETAS_D)
-        self.opt_Dsr = optim.Adam(self.D_sr.parameters(), lr=cfg.OPT_CYC.LR_D, betas=cfg.OPT_CYC.BETAS_D)
-        self.opt_U = optim.Adam(self.U.parameters(), lr=cfg.OPT_SR.LR_G, betas=cfg.OPT_SR.BETAS_G)
+        self.opt_Gxy = optim.Adam(self.G_xy.parameters(),
+                                  lr=cfg.OPT_CYC.LR_G,
+                                  betas=cfg.OPT_CYC.BETAS_G)
+        self.opt_Gyx = optim.Adam(self.G_yx.parameters(),
+                                  lr=cfg.OPT_CYC.LR_G,
+                                  betas=cfg.OPT_CYC.BETAS_G)
+        self.opt_Dx = optim.Adam(self.D_x.parameters(),
+                                 lr=cfg.OPT_CYC.LR_D,
+                                 betas=cfg.OPT_CYC.BETAS_D)
+        self.opt_Dy = optim.Adam(self.D_y.parameters(),
+                                 lr=cfg.OPT_CYC.LR_D,
+                                 betas=cfg.OPT_CYC.BETAS_D)
+        self.opt_Dsr = optim.Adam(self.D_sr.parameters(),
+                                  lr=cfg.OPT_CYC.LR_D,
+                                  betas=cfg.OPT_CYC.BETAS_D)
+        self.opt_U = optim.Adam(self.U.parameters(),
+                                lr=cfg.OPT_SR.LR_G,
+                                betas=cfg.OPT_SR.BETAS_G)
 
-        self.lr_Gxy = optim.lr_scheduler.MultiStepLR(self.opt_Gxy, milestones=cfg.OPT_CYC.LR_MILESTONE, gamma=cfg.OPT_CYC.LR_DECAY)
-        self.lr_Gyx = optim.lr_scheduler.MultiStepLR(self.opt_Gyx, milestones=cfg.OPT_CYC.LR_MILESTONE, gamma=cfg.OPT_CYC.LR_DECAY)
-        self.lr_Dx = optim.lr_scheduler.MultiStepLR(self.opt_Dx, milestones=cfg.OPT_CYC.LR_MILESTONE, gamma=cfg.OPT_CYC.LR_DECAY)
-        self.lr_Dy = optim.lr_scheduler.MultiStepLR(self.opt_Dy, milestones=cfg.OPT_CYC.LR_MILESTONE, gamma=cfg.OPT_CYC.LR_DECAY)
-        self.lr_Dsr = optim.lr_scheduler.MultiStepLR(self.opt_Dsr, milestones=cfg.OPT_CYC.LR_MILESTONE, gamma=cfg.OPT_CYC.LR_DECAY)
-        self.lr_U = optim.lr_scheduler.MultiStepLR(self.opt_U, milestones=cfg.OPT_SR.LR_MILESTONE, gamma=cfg.OPT_SR.LR_DECAY)
+        self.lr_Gxy = optim.lr_scheduler.MultiStepLR(
+            self.opt_Gxy,
+            milestones=cfg.OPT_CYC.LR_MILESTONE,
+            gamma=cfg.OPT_CYC.LR_DECAY)
+        self.lr_Gyx = optim.lr_scheduler.MultiStepLR(
+            self.opt_Gyx,
+            milestones=cfg.OPT_CYC.LR_MILESTONE,
+            gamma=cfg.OPT_CYC.LR_DECAY)
+        self.lr_Dx = optim.lr_scheduler.MultiStepLR(
+            self.opt_Dx,
+            milestones=cfg.OPT_CYC.LR_MILESTONE,
+            gamma=cfg.OPT_CYC.LR_DECAY)
+        self.lr_Dy = optim.lr_scheduler.MultiStepLR(
+            self.opt_Dy,
+            milestones=cfg.OPT_CYC.LR_MILESTONE,
+            gamma=cfg.OPT_CYC.LR_DECAY)
+        self.lr_Dsr = optim.lr_scheduler.MultiStepLR(
+            self.opt_Dsr,
+            milestones=cfg.OPT_CYC.LR_MILESTONE,
+            gamma=cfg.OPT_CYC.LR_DECAY)
+        self.lr_U = optim.lr_scheduler.MultiStepLR(
+            self.opt_U,
+            milestones=cfg.OPT_SR.LR_MILESTONE,
+            gamma=cfg.OPT_SR.LR_DECAY)
 
-        self.nets = {"G_xy":self.G_xy, "G_yx":self.G_yx, "U":self.U, "D_x":self.D_x, "D_y":self.D_y, "D_sr":self.D_sr}
-        self.optims = {"G_xy":self.opt_Gxy, "G_yx":self.opt_Gyx, "U":self.opt_U, "D_x":self.opt_Dx, "D_y":self.opt_Dy, "D_sr":self.opt_Dsr}
-        self.lr_decays = {"G_xy":self.lr_Gxy, "G_yx":self.lr_Gyx, "U":self.lr_U, "D_x":self.lr_Dx, "D_y":self.lr_Dy, "D_sr":self.lr_Dsr}
+        self.nets = {
+            "G_xy": self.G_xy,
+            "G_yx": self.G_yx,
+            "U": self.U,
+            "D_x": self.D_x,
+            "D_y": self.D_y,
+            "D_sr": self.D_sr
+        }
+        self.optims = {
+            "G_xy": self.opt_Gxy,
+            "G_yx": self.opt_Gyx,
+            "U": self.opt_U,
+            "D_x": self.opt_Dx,
+            "D_y": self.opt_Dy,
+            "D_sr": self.opt_Dsr
+        }
+        self.lr_decays = {
+            "G_xy": self.lr_Gxy,
+            "G_yx": self.lr_Gyx,
+            "U": self.lr_U,
+            "D_x": self.lr_Dx,
+            "D_y": self.lr_Dy,
+            "D_sr": self.lr_Dsr
+        }
         self.discs = ["D_x", "D_y", "D_sr"]
         self.gens = ["G_xy", "G_yx", "U"]
 
@@ -61,10 +126,10 @@ class Pseudo_Model():
 
     def net_save(self, folder, shout=False):
         file_name = os.path.join(folder, f"nets_{self.n_iter}.pth")
-        nets = {k:v.state_dict() for k, v in self.nets.items()}
-        optims = {k:v.state_dict() for k, v in self.optims.items()}
-        lr_decays = {k:v.state_dict() for k, v in self.lr_decays.items()}
-        alls = {"nets":nets, "optims":optims, "lr_decays":lr_decays}
+        nets = {k: v.state_dict() for k, v in self.nets.items()}
+        optims = {k: v.state_dict() for k, v in self.optims.items()}
+        lr_decays = {k: v.state_dict() for k, v in self.lr_decays.items()}
+        alls = {"nets": nets, "optims": optims, "lr_decays": lr_decays}
         torch.save(alls, file_name)
         if shout: print("Saved: ", file_name)
         return file_name
@@ -136,7 +201,8 @@ class Pseudo_Model():
         # D_x
         pred_fake_Xs = self.D_x(fake_Xs.detach())
         pred_real_Xs = self.D_x(Xs)
-        loss_D_x = (self.gan_loss(pred_real_Xs, True, True) + self.gan_loss(pred_fake_Xs, False, True)) * 0.5
+        loss_D_x = (self.gan_loss(pred_real_Xs, True, True) +
+                    self.gan_loss(pred_fake_Xs, False, True)) * 0.5
         self.opt_Dx.zero_grad()
         loss_D_x.backward()
         self.opt_Dx.step()
@@ -145,7 +211,8 @@ class Pseudo_Model():
         # D_y
         pred_fake_Yds = self.D_y(fake_Yds.detach())
         pred_real_Yds = self.D_y(Yds)
-        loss_D_y = (self.gan_loss(pred_real_Yds, True, True) + self.gan_loss(pred_fake_Yds, False, True)) * 0.5
+        loss_D_y = (self.gan_loss(pred_real_Yds, True, True) +
+                    self.gan_loss(pred_fake_Yds, False, True)) * 0.5
         self.opt_Dy.zero_grad()
         loss_D_y.backward()
         self.opt_Dy.step()
@@ -172,7 +239,9 @@ class Pseudo_Model():
         pred_fake_Yds = self.D_y(fake_Yds)
         # pred_sr_y = self.D_sr(sr_y)
         loss_gan_Gxy = self.gan_loss(pred_fake_Yds, True, False)
-        loss_idt_Gxy = self.l1_loss(idt_out, Yds) if self.idt_input_clean else self.l1_loss(idt_out, Xs)
+        loss_idt_Gxy = self.l1_loss(
+            idt_out, Yds) if self.idt_input_clean else self.l1_loss(
+                idt_out, Xs)
         loss_cycle = self.l1_loss(rec_Yds, Yds)
         loss_geo = self.l1_loss(fake_Yds, geo_Yds)
         # loss_d_sr = self.gan_loss(pred_sr_y, True, False)
@@ -196,6 +265,7 @@ class Pseudo_Model():
         # self.opt_U.step()
         # loss_dict["U_pix"] = loss_U.item()
         return loss_dict
+
 
 if __name__ == "__main__":
     from yacs.config import CfgNode

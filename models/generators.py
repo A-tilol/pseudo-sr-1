@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-import common
+from models import common
 
 class TransferNet(nn.Module):
     def __init__(self, n_feat=64, z_feat=8, leaky_neg=0.2, n_resblock=6, bn=True, rgb_range=255, rgb_mean=(0.5, 0.5, 0.5),):
